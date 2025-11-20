@@ -41,7 +41,7 @@ const App = () => (
                 <Route path="/install" element={<Install />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/family" element={<FamilyDashboard />} />
+                <Route path="/family-dashboard" element={<FamilyDashboard />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </MainLayout>
