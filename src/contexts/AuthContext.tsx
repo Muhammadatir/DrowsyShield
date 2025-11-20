@@ -17,7 +17,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && 
+    import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co' && 
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY !== 'placeholder-key';
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
