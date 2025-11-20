@@ -21,11 +21,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && 
     import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co' && 
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY !== 'placeholder-key';
+  
+  console.log('Supabase Config Check:', {
+    url: import.meta.env.VITE_SUPABASE_URL,
+    hasKey: !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    isConfigured: isSupabaseConfigured
+  });
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
+      console.log('Running in demo mode - Supabase not configured');
       setIsLoading(false);
       return;
+    } else {
+      console.log('Running with Supabase database');
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

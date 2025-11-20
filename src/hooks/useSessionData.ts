@@ -19,7 +19,10 @@ export const useSessionData = () => {
   const [error, setError] = useState<string | null>(null);
   const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && 
-    import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co';
+    import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co' && 
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY !== 'placeholder-key';
+  
+  console.log('Session Data - Supabase configured:', isSupabaseConfigured);
 
   const fetchSessions = async () => {
     if (!user) return;
@@ -28,10 +31,12 @@ export const useSessionData = () => {
     try {
       if (!isSupabaseConfigured) {
         // Demo mode - use localStorage
+        console.log('Using localStorage for sessions (demo mode)');
         const stored = localStorage.getItem('demo_sessions');
         const demoSessions = stored ? JSON.parse(stored) : [];
         setSessions(demoSessions);
       } else {
+        console.log('Using Supabase for sessions');
         const { data, error } = await supabase
           .from('sessions')
           .select('*')
