@@ -33,7 +33,7 @@ const Monitor = () => {
   const [showPermissionDialog, setShowPermissionDialog] = useState(true);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isMonitoring, setIsMonitoring] = useState(false);
-  const [sessionStartTime] = useState(() => new Date());
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [alertVolume, setAlertVolume] = useState(70);
   const [sensitivity, setSensitivity] = useState(50);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -75,6 +75,8 @@ const Monitor = () => {
     if (stream) {
       setCameraStream(stream);
       setIsMonitoring(true);
+      const startTime = new Date();
+      setSessionStartTime(startTime);
       
       // Create new session
       const session = await createSession();
@@ -107,8 +109,8 @@ const Monitor = () => {
 
   const handleStopMonitoring = async () => {
     // Save session data before stopping
-    if (currentSessionId) {
-      const duration = sessionStartTime ? Math.floor((Date.now() - sessionStartTime.getTime()) / 1000) : 0;
+    if (currentSessionId && sessionStartTime) {
+      const duration = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
       const avgAlertness = alertnessLevel;
       
       await updateSession(currentSessionId, {
