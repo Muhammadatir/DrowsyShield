@@ -1,0 +1,41 @@
+{
+  "name": "DrowsyShield - Stay Awake. Stay Alive.",
+  "short_name": "DrowsyShield",
+  "description": "DrowsyShield - Stay Awake. Stay Alive. Real-time driver drowsiness detection app to enhance road safety",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a202c",
+  "theme_color": "#ff6b35",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["safety", "utilities", "health"],
+  "shortcuts": [
+    {
+      "name": "Start Monitoring",
+      "short_name": "Monitor",
+      "description": "Start drowsiness monitoring",
+      "url": "/monitor",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Emergency",
+      "short_name": "Emergency",
+      "description": "Access emergency contacts",
+      "url": "/emergency",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
