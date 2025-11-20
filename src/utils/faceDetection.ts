@@ -164,10 +164,10 @@ export const detectFace = async (
     
     const MAR = calculateMAR(mouthLandmarks);
 
-    // EAR threshold for closed eyes - more sensitive
-    const EYE_CLOSED_THRESHOLD = 0.18;
+    // EAR threshold for closed eyes - less sensitive to prevent false alarms
+    const EYE_CLOSED_THRESHOLD = 0.15;
     // MAR threshold for yawning - optimized
-    const YAWN_THRESHOLD = 0.42;
+    const YAWN_THRESHOLD = 0.45;
 
     // Temporal smoothing - use rolling average
     const recentEARs = [leftEAR, rightEAR];

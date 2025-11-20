@@ -67,7 +67,7 @@ export const useFaceDetection = ({
     const abnormalBlinking = checkBlinkFrequency([...detectionHistory, result], 10000);
 
     // Multi-factor detection for better accuracy
-    const EYE_CLOSURE_ALERT_THRESHOLD = 70; // 70% of frames in 3s = ~2.1s closed
+    const EYE_CLOSURE_ALERT_THRESHOLD = 80; // 80% of frames in 3s = ~2.4s closed
     
     const shouldAlert = eyeClosurePercentage > EYE_CLOSURE_ALERT_THRESHOLD || isYawning || abnormalBlinking;
     const eyesCurrentlyOpen = !currentDetection?.eyeState.bothEyesClosed;
@@ -83,10 +83,10 @@ export const useFaceDetection = ({
       const now = Date.now();
       // Only alert once every 3 seconds and if eyes are still closed
       if (now - lastAlertTimeRef.current > 3000 && !alertTimeoutRef.current) {
-        // Delay alert by 500ms to allow for eye opening
+        // Delay alert by 1000ms to allow for eye opening and reduce false alarms
         alertTimeoutRef.current = window.setTimeout(() => {
           // Double-check eyes are still closed before alerting
-          if (currentDetection?.eyeState.bothEyesClosed || isYawning || abnormalBlinking) {
+          if ((currentDetection?.eyeState.bothEyesClosed && currentDetection?.faceDetected) || isYawning || abnormalBlinking) {
             const reason = isYawning ? "YAWNING" : abnormalBlinking ? "ABNORMAL BLINKING" : "EYES CLOSED";
             console.log(`🚨 DROWSINESS ALERT: ${reason}! 🚨`);
             if (!isYawning) {
