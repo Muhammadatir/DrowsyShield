@@ -38,6 +38,7 @@ const Monitor = () => {
   const [sensitivity, setSensitivity] = useState(50);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showSafetyReport, setShowSafetyReport] = useState(false);
+  const [alertnessHistory, setAlertnessHistory] = useState<number[]>([]);
   
   const { createSession, updateSession } = useSessionData();
 
@@ -141,8 +142,22 @@ const Monitor = () => {
     };
   }, [cameraStream]);
 
-  const alertnessLevel = currentDetection
+  // Calculate smoothed alertness level to prevent fluctuation alerts
+  const rawAlertnessLevel = currentDetection
     ? 100 - calculateEyeClosureDuration(detectionHistory, 3000)
+    : 100;
+  
+  // Update alertness history for smoothing
+  useEffect(() => {
+    setAlertnessHistory(prev => {
+      const updated = [...prev, rawAlertnessLevel];
+      return updated.slice(-10); // Keep last 10 readings
+    });
+  }, [rawAlertnessLevel]);
+  
+  // Use smoothed alertness level (average of last 5 readings)
+  const alertnessLevel = alertnessHistory.length > 0 
+    ? alertnessHistory.slice(-5).reduce((a, b) => a + b, 0) / Math.min(alertnessHistory.length, 5)
     : 100;
 
   return (

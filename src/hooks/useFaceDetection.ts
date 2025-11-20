@@ -69,17 +69,22 @@ export const useFaceDetection = ({
     // Multi-factor detection for better accuracy
     const EYE_CLOSURE_ALERT_THRESHOLD = 80; // 80% of frames in 3s = ~2.4s closed
     
-    const shouldAlert = eyeClosurePercentage > EYE_CLOSURE_ALERT_THRESHOLD || isYawning || abnormalBlinking;
-    const eyesCurrentlyOpen = !currentDetection?.eyeState.bothEyesClosed;
-
-    // Cancel pending alert if eyes are now open
-    if (eyesCurrentlyOpen && alertTimeoutRef.current) {
+    // More conservative alerting - require sustained drowsiness
+    const shouldAlert = (eyeClosurePercentage > EYE_CLOSURE_ALERT_THRESHOLD && result.faceDetected) || isYawning || abnormalBlinking;
+    const eyesCurrentlyOpen = result.faceDetected && !result.eyeState.bothEyesClosed;
+    
+    // Calculate alertness level for additional check
+    const currentAlertness = 100 - eyeClosurePercentage;
+    
+    // Cancel pending alert if eyes are open or alertness is recovering
+    if ((eyesCurrentlyOpen || currentAlertness > 85) && alertTimeoutRef.current) {
       clearTimeout(alertTimeoutRef.current);
       alertTimeoutRef.current = null;
-      console.log("✅ Alert cancelled - eyes are open");
+      console.log("✅ Alert cancelled - eyes open or alertness recovering", { alertness: currentAlertness.toFixed(1) });
     }
 
-    if (shouldAlert && !eyesCurrentlyOpen) {
+    // Only alert if face is detected, sustained drowsiness, and low alertness
+    if (shouldAlert && result.faceDetected && !eyesCurrentlyOpen && currentAlertness < 80) {
       const now = Date.now();
       // Only alert once every 3 seconds and if eyes are still closed
       if (now - lastAlertTimeRef.current > 3000 && !alertTimeoutRef.current) {
