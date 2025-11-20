@@ -111,19 +111,31 @@ const Monitor = () => {
   const handleStopMonitoring = async () => {
     // Save session data before stopping
     if (currentSessionId && sessionStartTime) {
-      const duration = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
-      const avgAlertness = alertnessLevel;
+      const endTime = new Date();
+      const durationMs = endTime.getTime() - sessionStartTime.getTime();
+      const duration = Math.floor(durationMs / 1000);
+      const avgAlertness = Math.round(alertnessLevel);
+      
+      console.log('Stopping monitoring - Session data:', {
+        sessionId: currentSessionId,
+        startTime: sessionStartTime.toISOString(),
+        endTime: endTime.toISOString(),
+        durationMs,
+        duration,
+        drowsinessCount,
+        avgAlertness
+      });
       
       await updateSession(currentSessionId, {
-        end_time: new Date().toISOString(),
+        end_time: endTime.toISOString(),
         duration,
         total_drowsiness_incidents: drowsinessCount,
         avg_alertness_level: avgAlertness,
         max_alertness_level: 100,
       });
       
-      // Show safety report if session was meaningful (>30 seconds)
-      if (duration > 30) {
+      // Show safety report if session was meaningful (>10 seconds)
+      if (duration > 10) {
         setShowSafetyReport(true);
         return;
       }
@@ -228,7 +240,21 @@ const Monitor = () => {
           navigate("/");
         }}
         sessionData={{
-          duration: sessionStartTime ? Math.floor((Date.now() - sessionStartTime.getTime()) / 1000) : 0,
+          duration: (() => {
+            if (!sessionStartTime) {
+              console.log('No session start time available');
+              return 0;
+            }
+            const durationMs = Date.now() - sessionStartTime.getTime();
+            const durationSeconds = Math.floor(durationMs / 1000);
+            console.log('Session duration calculation:', {
+              startTime: sessionStartTime.toISOString(),
+              endTime: new Date().toISOString(),
+              durationMs,
+              durationSeconds
+            });
+            return durationSeconds;
+          })(),
           drowsinessCount,
           avgAlertness: alertnessLevel,
         }}

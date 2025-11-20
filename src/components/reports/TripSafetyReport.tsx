@@ -22,9 +22,18 @@ export const TripSafetyReport = ({ isOpen, onClose, sessionData }: TripSafetyRep
   const [showTripReport, setShowTripReport] = useState(false);
   
   const formatDuration = (seconds: number) => {
+    if (seconds <= 0) return "0m 0s";
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    } else if (mins > 0) {
+      return `${mins}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
   };
 
   const calculateSafetyScore = () => {
@@ -90,6 +99,7 @@ export const TripSafetyReport = ({ isOpen, onClose, sessionData }: TripSafetyRep
                 <Clock className="h-6 w-6 mx-auto mb-2 text-blue-500" />
                 <div className="text-sm text-muted-foreground">Driving Time</div>
                 <div className="text-xl font-bold">{formatDuration(duration)}</div>
+                <div className="text-xs text-muted-foreground">({duration} seconds)</div>
               </CardContent>
             </Card>
             
