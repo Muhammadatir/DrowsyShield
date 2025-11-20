@@ -154,52 +154,81 @@ export class AlertSystem {
         return;
       }
       
-      // Cancel any ongoing speech
+      // Force stop any ongoing speech
       this.speechSynth.cancel();
       
-      // Wait a bit for cancel to complete
-      setTimeout(() => {
-        const alertMessage = message || this.voiceAlerts[this.alertCount % this.voiceAlerts.length];
-        const utterance = new SpeechSynthesisUtterance(alertMessage);
+      const alertMessage = message || this.voiceAlerts[this.alertCount % this.voiceAlerts.length];
+      console.log('Attempting to speak:', alertMessage);
+      
+      // Multiple attempts with different approaches
+      const speakWithRetry = (attempt = 1) => {
+        if (attempt > 3) {
+          console.error('All speech attempts failed');
+          return;
+        }
         
-        utterance.rate = 0.8;
+        const utterance = new SpeechSynthesisUtterance(alertMessage);
+        utterance.rate = 0.9;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
         utterance.lang = 'en-US';
         
-        // Try to get a specific voice for better Android compatibility
-        const voices = this.speechSynth.getVoices();
-        const englishVoice = voices.find(voice => 
-          voice.lang.includes('en') && voice.localService
-        ) || voices.find(voice => voice.lang.includes('en'));
+        // Get available voices
+        let voices = this.speechSynth.getVoices();
+        if (voices.length === 0) {
+          // Voices not loaded yet, wait and retry
+          setTimeout(() => {
+            voices = this.speechSynth.getVoices();
+            speakWithRetry(attempt + 1);
+          }, 100);
+          return;
+        }
         
-        if (englishVoice) {
-          utterance.voice = englishVoice;
-          console.log('Using voice:', englishVoice.name);
+        // Try different voice selection strategies
+        let selectedVoice = null;
+        if (attempt === 1) {
+          // Try local English voice first
+          selectedVoice = voices.find(voice => 
+            voice.lang.startsWith('en') && voice.localService
+          );
+        } else if (attempt === 2) {
+          // Try any English voice
+          selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
+        } else {
+          // Use default voice
+          selectedVoice = voices[0];
+        }
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          console.log(`Attempt ${attempt}: Using voice:`, selectedVoice.name, selectedVoice.lang);
         }
         
         utterance.onstart = () => {
-          console.log('Speech started:', alertMessage);
+          console.log(`Speech started (attempt ${attempt}):`, alertMessage);
         };
         
         utterance.onend = () => {
-          console.log('Speech ended');
+          console.log('Speech completed successfully');
         };
         
         utterance.onerror = (e) => {
-          console.error('Speech error:', e.error);
-          // Fallback: try again with simpler message
-          if (e.error === 'network') {
-            const simpleUtterance = new SpeechSynthesisUtterance('Wake up!');
-            simpleUtterance.volume = 1.0;
-            this.speechSynth.speak(simpleUtterance);
-          }
+          console.error(`Speech error (attempt ${attempt}):`, e.error);
+          // Retry with different approach
+          setTimeout(() => speakWithRetry(attempt + 1), 200);
         };
         
-        this.speechSynth.speak(utterance);
-        console.log('Speech queued:', alertMessage);
-        
-      }, 100);
+        // Ensure speech synthesis is ready
+        if (this.speechSynth.speaking) {
+          this.speechSynth.cancel();
+          setTimeout(() => this.speechSynth.speak(utterance), 100);
+        } else {
+          this.speechSynth.speak(utterance);
+        }
+      };
+      
+      // Start speaking attempts
+      speakWithRetry(1);
       
     } catch (error) {
       console.error('Error in speech synthesis:', error);
@@ -237,24 +266,33 @@ export class AlertSystem {
     };
 
     this.alertCount++;
-    console.log('Triggering full alert - count:', this.alertCount);
+    console.log('🚨 TRIGGERING FULL ALERT - count:', this.alertCount);
     
-    // Immediate vibration
+    // Immediate feedback
     this.vibrateDevice(vibrationPatterns[intensity]);
     
-    // Play sound immediately
-    this.playAlertSound(volume);
+    // Start speaking immediately (most important for user)
+    console.log('🗣️ Starting voice alert...');
+    this.speakAlert();
     
-    // Speak after a short delay
+    // Play sound after a brief delay to not interfere with speech
     setTimeout(() => {
-      this.speakAlert();
-    }, 500);
+      console.log('🔊 Playing alert sound...');
+      this.playAlertSound(volume);
+    }, 200);
     
-    // Additional sound after speech
+    // Additional alerts for persistent drowsiness
     setTimeout(() => {
-      this.playAlertSound(volume * 0.8);
-      this.vibrateDevice([200, 100, 200]);
-    }, 3000);
+      console.log('🔊 Playing secondary alert...');
+      this.playAlertSound(volume * 0.9);
+      this.vibrateDevice([300, 100, 300]);
+    }, 2500);
+    
+    // Final voice reminder
+    setTimeout(() => {
+      console.log('🗣️ Final voice reminder...');
+      this.speakAlert('Please pull over safely if you continue to feel drowsy.');
+    }, 5000);
   }
 
   stopAllAlerts() {
