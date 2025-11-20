@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { useToast } from "@/hooks/use-toast";
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [settings, setSettings] = useState({
     theme: "dark",
     alertVoice: "female",
@@ -168,7 +170,11 @@ const Profile = () => {
               />
             </div>
 
-            <Button variant="outline" className="w-full btn-enhanced">
+            <Button 
+              variant="outline" 
+              className="w-full btn-enhanced"
+              onClick={() => navigate('/family-dashboard')}
+            >
               <Users className="h-4 w-4 mr-2" />
               Manage Family Dashboard
             </Button>
@@ -184,13 +190,35 @@ const Profile = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full btn-enhanced">
+            <Button 
+              variant="outline" 
+              className="w-full btn-enhanced"
+              onClick={() => {
+                toast({
+                  title: "Generating Report",
+                  description: "Monthly report will be ready shortly",
+                });
+              }}
+            >
               Generate Monthly Report
             </Button>
-            <Button variant="outline" className="w-full btn-enhanced">
+            <Button 
+              variant="outline" 
+              className="w-full btn-enhanced"
+              onClick={() => {
+                toast({
+                  title: "Export Started",
+                  description: "Data is being exported to Health App",
+                });
+              }}
+            >
               Export to Health App
             </Button>
-            <Button variant="outline" className="w-full btn-enhanced">
+            <Button 
+              variant="outline" 
+              className="w-full btn-enhanced"
+              onClick={() => navigate('/analytics')}
+            >
               Fatigue Pattern Analysis
             </Button>
           </CardContent>
