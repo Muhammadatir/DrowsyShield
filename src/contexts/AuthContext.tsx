@@ -17,10 +17,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
   useEffect(() => {
-    // Skip auth setup if Supabase is not configured
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    if (!isSupabaseConfigured) {
       setIsLoading(false);
       return;
     }
@@ -42,17 +42,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isSupabaseConfigured]);
 
   const signUp = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      // Demo mode - simulate successful signup
+      const demoUser = { id: 'demo-user', email } as User;
+      setUser(demoUser);
+      setSession({ user: demoUser } as Session);
+      return { error: null };
+    }
+    
     try {
-      // Check if Supabase is properly configured
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
-        return { error: new Error('Authentication service not configured. Please contact support.') };
-      }
-      
       const redirectUrl = `${window.location.origin}/`;
-      
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -67,12 +69,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      // Demo mode - simulate successful login
+      const demoUser = { id: 'demo-user', email } as User;
+      setUser(demoUser);
+      setSession({ user: demoUser } as Session);
+      return { error: null };
+    }
+    
     try {
-      // Check if Supabase is properly configured
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
-        return { error: new Error('Authentication service not configured. Please contact support.') };
-      }
-      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
