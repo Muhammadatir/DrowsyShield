@@ -17,21 +17,31 @@ export const useSessionData = () => {
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && 
+    import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co';
 
   const fetchSessions = async () => {
     if (!user) return;
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('start_time', { ascending: false })
-        .limit(50);
+      if (!isSupabaseConfigured) {
+        // Demo mode - use localStorage
+        const stored = localStorage.getItem('demo_sessions');
+        const demoSessions = stored ? JSON.parse(stored) : [];
+        setSessions(demoSessions);
+      } else {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('start_time', { ascending: false })
+          .limit(50);
 
-      if (error) throw error;
-      setSessions(data || []);
+        if (error) throw error;
+        setSessions(data || []);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch sessions');
       console.error('Error fetching sessions:', err);
@@ -48,21 +58,34 @@ export const useSessionData = () => {
     if (!user) return null;
 
     try {
-      const { data, error } = await supabase
-        .from('sessions')
-        .insert({
-          user_id: user.id,
-          start_time: new Date().toISOString(),
-          total_drowsiness_incidents: 0,
-          avg_alertness_level: 100,
-          max_alertness_level: 100,
-        })
-        .select()
-        .single();
+      const newSession = {
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        start_time: new Date().toISOString(),
+        total_drowsiness_incidents: 0,
+        avg_alertness_level: 100,
+        max_alertness_level: 100,
+      };
 
-      if (error) throw error;
-      setSessions(prev => [data, ...prev]);
-      return data;
+      if (!isSupabaseConfigured) {
+        // Demo mode - save to localStorage
+        const stored = localStorage.getItem('demo_sessions');
+        const sessions = stored ? JSON.parse(stored) : [];
+        sessions.unshift(newSession);
+        localStorage.setItem('demo_sessions', JSON.stringify(sessions));
+        setSessions(prev => [newSession, ...prev]);
+        return newSession;
+      } else {
+        const { data, error } = await supabase
+          .from('sessions')
+          .insert(newSession)
+          .select()
+          .single();
+
+        if (error) throw error;
+        setSessions(prev => [data, ...prev]);
+        return data;
+      }
     } catch (err) {
       console.error('Error creating session:', err);
       return null;
@@ -74,16 +97,27 @@ export const useSessionData = () => {
     updates: Partial<SessionData>
   ) => {
     try {
-      const { error } = await supabase
-        .from('sessions')
-        .update(updates)
-        .eq('id', sessionId);
+      if (!isSupabaseConfigured) {
+        // Demo mode - update localStorage
+        const stored = localStorage.getItem('demo_sessions');
+        const sessions = stored ? JSON.parse(stored) : [];
+        const updatedSessions = sessions.map((s: SessionData) => 
+          s.id === sessionId ? { ...s, ...updates } : s
+        );
+        localStorage.setItem('demo_sessions', JSON.stringify(updatedSessions));
+        setSessions(updatedSessions);
+      } else {
+        const { error } = await supabase
+          .from('sessions')
+          .update(updates)
+          .eq('id', sessionId);
 
-      if (error) throw error;
-      
-      setSessions(prev =>
-        prev.map(s => (s.id === sessionId ? { ...s, ...updates } : s))
-      );
+        if (error) throw error;
+        
+        setSessions(prev =>
+          prev.map(s => (s.id === sessionId ? { ...s, ...updates } : s))
+        );
+      }
     } catch (err) {
       console.error('Error updating session:', err);
     }
