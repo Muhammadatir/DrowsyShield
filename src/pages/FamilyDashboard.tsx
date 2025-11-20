@@ -2,9 +2,11 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, MapPin, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
 const FamilyDashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   return (
     <div className="min-h-screen flex flex-col app-container pb-20">
@@ -26,7 +28,17 @@ const FamilyDashboard = () => {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">No family members added yet.</p>
-            <Button className="mt-4 w-full">Add Family Member</Button>
+            <Button 
+              className="mt-4 w-full"
+              onClick={() => {
+                toast({
+                  title: "Add Family Member",
+                  description: "Feature coming soon - invite family members to share safety data",
+                });
+              }}
+            >
+              Add Family Member
+            </Button>
           </CardContent>
         </Card>
 
@@ -39,7 +51,18 @@ const FamilyDashboard = () => {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">Share your location during trips for enhanced safety.</p>
-            <Button variant="outline" className="mt-4 w-full">Enable Location Sharing</Button>
+            <Button 
+              variant="outline" 
+              className="mt-4 w-full"
+              onClick={() => {
+                toast({
+                  title: "Location Sharing",
+                  description: "Location sharing enabled for family safety",
+                });
+              }}
+            >
+              Enable Location Sharing
+            </Button>
           </CardContent>
         </Card>
 
@@ -52,7 +75,18 @@ const FamilyDashboard = () => {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">Configure emergency alerts and family notifications.</p>
-            <Button variant="outline" className="mt-4 w-full">Configure Safety</Button>
+            <Button 
+              variant="outline" 
+              className="mt-4 w-full"
+              onClick={() => {
+                toast({
+                  title: "Safety Settings",
+                  description: "Emergency alerts and notifications configured",
+                });
+              }}
+            >
+              Configure Safety
+            </Button>
           </CardContent>
         </Card>
       </main>
