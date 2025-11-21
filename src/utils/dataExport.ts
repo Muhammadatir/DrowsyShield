@@ -1,22 +1,55 @@
 import type { SessionData } from "@/types";
 
-export const exportSessionsToCSV = (sessions: SessionData[]): void => {
-  const headers = ['Date', 'Start Time', 'Duration (min)', 'Drowsiness Alerts', 'Average Alertness', 'Status'];
+export const exportSessionsToCSV = (sessions: any[]): void => {
+  const headers = ['Date', 'Start Time', 'End Time', 'Duration (min)', 'Duration (sec)', 'Drowsiness Alerts', 'Average Alertness', 'Status'];
   
   const rows = sessions.map(session => {
-    const startDate = new Date(session.startTime);
+    // Handle different possible date formats
+    let startDate: Date;
+    let endDate: Date | null = null;
+    
+    try {
+      // Try parsing start_time (from database) or startTime (from types)
+      const startTimeStr = session.start_time || session.startTime;
+      startDate = new Date(startTimeStr);
+      
+      // Check if date is valid
+      if (isNaN(startDate.getTime())) {
+        startDate = new Date(); // Fallback to current date
+      }
+      
+      // Try parsing end_time
+      const endTimeStr = session.end_time || session.endTime;
+      if (endTimeStr) {
+        endDate = new Date(endTimeStr);
+        if (isNaN(endDate.getTime())) {
+          endDate = null;
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing session dates:', error);
+      startDate = new Date();
+    }
+    
+    const duration = session.duration || 0;
+    const drowsinessCount = session.total_drowsiness_incidents || session.drowsinessCount || 0;
+    const avgAlertness = session.avg_alertness_level || session.averageAlertness || 100;
+    const status = endDate ? 'Completed' : 'Active';
+    
     return [
-      startDate.toLocaleDateString(),
-      startDate.toLocaleTimeString(),
-      Math.round(session.duration / 60),
-      session.drowsinessCount,
-      session.averageAlertness || 100,
-      session.status,
+      startDate.toLocaleDateString('en-US'),
+      startDate.toLocaleTimeString('en-US'),
+      endDate ? endDate.toLocaleTimeString('en-US') : 'N/A',
+      Math.round(duration / 60),
+      duration,
+      drowsinessCount,
+      Math.round(avgAlertness),
+      status,
     ].join(',');
   });
 
   const csv = [headers.join(','), ...rows].join('\n');
-  downloadFile(csv, 'drowsyguard-sessions.csv', 'text/csv');
+  downloadFile(csv, 'drowsyshield-sessions.csv', 'text/csv');
 };
 
 export const exportSessionsToJSON = (sessions: SessionData[]): void => {
