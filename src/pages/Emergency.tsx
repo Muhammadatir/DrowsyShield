@@ -53,6 +53,11 @@ const Emergency = () => {
       description: "Emergency contact has been removed",
     });
   };
+  
+  const handleShareLocation = (contact: EmergencyContact) => {
+    console.log('Location shared with:', contact.name);
+    // Additional logging or analytics can be added here
+  };
 
   return (
     <div className="min-h-screen flex flex-col p-6 pb-20">
@@ -127,6 +132,7 @@ const Emergency = () => {
                   contact={contact}
                   onCall={handleCall}
                   onDelete={handleDeleteContact}
+                  onShareLocation={handleShareLocation}
                 />
               ))}
             </div>
