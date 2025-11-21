@@ -144,8 +144,29 @@ const Settings = () => {
             ]}
           />
 
+          <SwitchSetting
+            label="Voice Alerts"
+            description="Enable spoken drowsiness warnings"
+            checked={preferences.voiceAlerts}
+            onChange={(checked) => updatePreferences({ voiceAlerts: checked })}
+          />
+
           <Button onClick={handleTestAlert} variant="outline" className="w-full">
             Test Alerts
+          </Button>
+          
+          <Button 
+            onClick={() => {
+              alertSystem.testVoiceAlert();
+              toast({
+                title: "Voice Test",
+                description: "Testing voice alert functionality",
+              });
+            }} 
+            variant="outline" 
+            className="w-full"
+          >
+            Test Voice Alert
           </Button>
         </SettingsSection>
 

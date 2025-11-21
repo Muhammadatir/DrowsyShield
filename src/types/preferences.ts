@@ -9,6 +9,7 @@ export interface UserPreferences {
   detectionMode: 'standard' | 'sensitive' | 'relaxed';
   earlyWarning: boolean;
   dataCollection: boolean;
+  voiceAlerts: boolean;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -19,6 +20,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   detectionMode: 'standard',
   earlyWarning: true,
   dataCollection: true,
+  voiceAlerts: true,
 };
 
 export interface DetectionMode {
