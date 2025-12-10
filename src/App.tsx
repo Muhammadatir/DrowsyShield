@@ -13,6 +13,8 @@ import Settings from "./pages/Settings";
 import Calibrate from "./pages/Calibrate";
 import Emergency from "./pages/Emergency";
 import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Install from "./pages/Install";
 import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
@@ -38,6 +40,8 @@ const App = () => (
                 <Route path="/calibrate" element={<Calibrate />} />
                 <Route path="/emergency" element={<Emergency />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/install" element={<Install />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/profile" element={<Profile />} />

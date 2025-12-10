@@ -1,3 +1,6 @@
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { Capacitor } from '@capacitor/core';
+
 export class AlertSystem {
   private audioContext: AudioContext | null = null;
   private isPlaying: boolean = false;
@@ -5,6 +8,7 @@ export class AlertSystem {
   private alertCount: number = 0;
   private audioElement: HTMLAudioElement | null = null;
   private isInitialized: boolean = false;
+  private isNative: boolean = Capacitor.isNativePlatform();
 
   private voiceAlerts = [
     "You look tired. Please take a break.",
@@ -177,13 +181,8 @@ export class AlertSystem {
     }
   }
 
-  speakAlert(message?: string, forceSpeak: boolean = false) {
+  async speakAlert(message?: string, forceSpeak: boolean = false) {
     try {
-      if (!this.speechSynth) {
-        console.warn("Speech synthesis not available");
-        return;
-      }
-      
       // Check if voice alerts are enabled (unless forced for testing)
       if (!forceSpeak) {
         const preferences = JSON.parse(localStorage.getItem('userPreferences') || '{}');
@@ -193,11 +192,36 @@ export class AlertSystem {
         }
       }
       
-      // Force stop any ongoing speech
-      this.speechSynth.cancel();
-      
       const alertMessage = message || this.voiceAlerts[this.alertCount % this.voiceAlerts.length];
       console.log('🗣️ Attempting to speak:', alertMessage);
+      
+      // Use native TTS on mobile platforms
+      if (this.isNative) {
+        try {
+          await TextToSpeech.speak({
+            text: alertMessage,
+            lang: 'en-US',
+            rate: 1.0,
+            pitch: 1.1,
+            volume: 1.0,
+            category: 'ambient'
+          });
+          console.log('✅ Native TTS completed:', alertMessage);
+          return;
+        } catch (nativeError) {
+          console.error('❌ Native TTS failed:', nativeError);
+          // Fall back to web speech synthesis
+        }
+      }
+      
+      // Web speech synthesis fallback
+      if (!this.speechSynth) {
+        console.warn("Speech synthesis not available");
+        return;
+      }
+      
+      // Force stop any ongoing speech
+      this.speechSynth.cancel();
       
       // Wait a moment for any previous cancel to complete
       setTimeout(() => {
@@ -231,14 +255,6 @@ export class AlertSystem {
         
         utterance.onerror = (e) => {
           console.error('❌ Speech error:', e.error);
-          // Fallback: try again with simpler settings
-          setTimeout(() => {
-            const fallbackUtterance = new SpeechSynthesisUtterance(alertMessage);
-            fallbackUtterance.rate = 1.0;
-            fallbackUtterance.volume = 1.0;
-            this.speechSynth.speak(fallbackUtterance);
-            console.log('🔄 Retrying speech with fallback settings');
-          }, 500);
         };
         
         // Speak the utterance
@@ -323,26 +339,19 @@ export class AlertSystem {
   }
 
   // Test function to verify voice functionality
-  testVoiceAlert() {
+  async testVoiceAlert() {
     console.log('🧪 Testing voice alert functionality...');
+    console.log('Platform:', this.isNative ? 'Native' : 'Web');
     console.log('Speech synthesis available:', !!this.speechSynth);
-    console.log('Voices loaded:', this.speechSynth?.getVoices().length || 0);
     
-    if (this.speechSynth && this.speechSynth.getVoices().length > 0) {
-      this.speakAlert('Voice alert test successful. The monitoring system is working.', true);
-      return true;
+    if (this.isNative) {
+      console.log('Using native TTS');
     } else {
-      console.warn('Voice synthesis not ready. Voices may still be loading.');
-      // Try again after a delay
-      setTimeout(() => {
-        if (this.speechSynth && this.speechSynth.getVoices().length > 0) {
-          this.speakAlert('Voice alert test successful. The monitoring system is working.', true);
-        } else {
-          console.error('Voice synthesis failed to initialize properly.');
-        }
-      }, 1000);
-      return false;
+      console.log('Voices loaded:', this.speechSynth?.getVoices().length || 0);
     }
+    
+    await this.speakAlert('Voice alert test successful. The monitoring system is working.', true);
+    return true;
   }
 }
 

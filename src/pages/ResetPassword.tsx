@@ -1,27 +1,41 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Shield } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
-const Auth = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+const ResetPassword = () => {
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signIn } = useAuth();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check if we have the required tokens from the URL
+    const accessToken = searchParams.get('access_token');
+    const refreshToken = searchParams.get('refresh_token');
+    
+    if (!accessToken || !refreshToken) {
+      toast({
+        title: "Invalid Reset Link",
+        description: "This password reset link is invalid or has expired",
+        variant: "destructive",
+      });
+      navigate('/auth');
+    }
+  }, [searchParams, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
+    if (!password || !confirmPassword) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -39,12 +53,21 @@ const Auth = () => {
       return;
     }
 
+    if (password !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const { error } = isSignUp 
-        ? await signUp(email, password)
-        : await signIn(email, password);
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      });
 
       if (error) {
         toast({
@@ -55,11 +78,9 @@ const Auth = () => {
       } else {
         toast({
           title: "Success",
-          description: isSignUp 
-            ? "Account created successfully! You can now sign in."
-            : "Signed in successfully!",
+          description: "Your password has been updated successfully",
         });
-        navigate('/');
+        navigate('/auth');
       }
     } catch (error) {
       toast({
@@ -79,31 +100,15 @@ const Auth = () => {
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
             <Shield className="w-6 h-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
-          </CardTitle>
+          <CardTitle className="text-2xl">Reset Password</CardTitle>
           <CardDescription>
-            {isSignUp 
-              ? 'Sign up to start monitoring your driving sessions'
-              : 'Sign in to access your DrowsyGuard account'}
+            Enter your new password below
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">New Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -124,35 +129,26 @@ const Auth = () => {
                 </button>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isLoading}
+                required
+                minLength={6}
+              />
+            </div>
             <Button
               type="submit"
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? 'Please wait...' : (isSignUp ? 'Sign Up' : 'Sign In')}
+              {isLoading ? 'Updating...' : 'Update Password'}
             </Button>
-            <div className="text-center text-sm space-y-2">
-              {!isSignUp && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/forgot-password')}
-                  className="text-primary hover:underline block w-full"
-                  disabled={isLoading}
-                >
-                  Forgot your password?
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-primary hover:underline"
-                disabled={isLoading}
-              >
-                {isSignUp 
-                  ? 'Already have an account? Sign in'
-                  : "Don't have an account? Sign up"}
-              </button>
-            </div>
           </form>
         </CardContent>
       </Card>
@@ -160,4 +156,4 @@ const Auth = () => {
   );
 };
 
-export default Auth;
+export default ResetPassword;
