@@ -16,6 +16,8 @@ import { loadPreferences } from "@/utils/localStorage";
 import { useSessionData } from "@/hooks/useSessionData";
 import { useAuth } from "@/contexts/AuthContext";
 import { TripSafetyReport } from "@/components/reports/TripSafetyReport";
+import { crashDetector } from "@/utils/crashDetection";
+import { alertSystem } from "@/utils/alertSystem";
 
 const Monitor = () => {
   const navigate = useNavigate();
@@ -39,8 +41,30 @@ const Monitor = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showSafetyReport, setShowSafetyReport] = useState(false);
   const [alertnessHistory, setAlertnessHistory] = useState<number[]>([]);
+  const [crashDetected, setCrashDetected] = useState(false);
   
   const { createSession, updateSession } = useSessionData();
+
+  // Start crash detection when monitoring begins
+  useEffect(() => {
+    if (isMonitoring) {
+      crashDetector.start((force) => {
+        setCrashDetected(true);
+        alertSystem.triggerFullAlert(1.0, 'high');
+        alertSystem.speakAlert('Crash detected! Are you okay? Emergency contacts will be notified.', true);
+        toast({
+          title: '🚨 Crash Detected!',
+          description: `Impact force: ${force.toFixed(1)} m/s². Stay calm, check for injuries.`,
+          variant: 'destructive',
+        });
+        // Auto-reset after 30s
+        setTimeout(() => setCrashDetected(false), 30000);
+      });
+    } else {
+      crashDetector.stop();
+    }
+    return () => crashDetector.stop();
+  }, [isMonitoring]);
 
   // Load preferences on mount
   useEffect(() => {
@@ -206,6 +230,18 @@ const Monitor = () => {
       )}
 
       <main className="app-main">
+        {crashDetected && (
+          <div className="bg-destructive text-destructive-foreground rounded-lg p-4 flex items-center gap-3 animate-pulse">
+            <span className="text-2xl">🚨</span>
+            <div>
+              <p className="font-bold">Crash Detected!</p>
+              <p className="text-sm">Check for injuries. Call 112 if needed.</p>
+            </div>
+            <Button size="sm" variant="outline" className="ml-auto" onClick={() => window.location.href = 'tel:112'}>
+              Call 112
+            </Button>
+          </div>
+        )}
         <CameraPreview ref={videoRef} stream={cameraStream} isActive={isMonitoring} />
 
         <SessionTimer startTime={sessionStartTime} isActive={isMonitoring} />
