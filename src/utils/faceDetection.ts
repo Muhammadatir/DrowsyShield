@@ -21,13 +21,13 @@ export const initializeFaceDetector = async () => {
   try {
     console.log("Initializing MediaPipe Face Landmarker...");
     const vision = await FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+      "/mediapipe/wasm"
     );
     
     faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-        delegate: "GPU"
+        modelAssetPath: "/mediapipe/face_landmarker.task",
+        delegate: "CPU"
       },
       runningMode: "VIDEO",
       numFaces: 1,
