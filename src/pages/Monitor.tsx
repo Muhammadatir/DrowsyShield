@@ -42,28 +42,53 @@ const Monitor = () => {
   const [showSafetyReport, setShowSafetyReport] = useState(false);
   const [alertnessHistory, setAlertnessHistory] = useState<number[]>([]);
   const [crashDetected, setCrashDetected] = useState(false);
+  const [crashCountdown, setCrashCountdown] = useState(0);
+  const crashTimerRef = useRef<number | null>(null);
   
   const { createSession, updateSession } = useSessionData();
+
+  const cancelCrashAlert = () => {
+    if (crashTimerRef.current) clearInterval(crashTimerRef.current);
+    setCrashDetected(false);
+    setCrashCountdown(0);
+    alertSystem.stopAllAlerts();
+    toast({ title: "Alert Cancelled", description: "Crash alert dismissed. Stay safe!" });
+  };
 
   // Start crash detection when monitoring begins
   useEffect(() => {
     if (isMonitoring) {
       crashDetector.start((force) => {
         setCrashDetected(true);
+        setCrashCountdown(15);
         alertSystem.triggerFullAlert(1.0, 'high');
-        alertSystem.speakAlert('Crash detected! Are you okay? Emergency contacts will be notified.', true);
+        alertSystem.speakAlert('Crash detected! Tap I am okay within 15 seconds or emergency services will be called.', true);
         toast({
           title: '🚨 Crash Detected!',
-          description: `Impact force: ${force.toFixed(1)} m/s². Stay calm, check for injuries.`,
+          description: `Impact: ${force.toFixed(1)} m/s². Calling 112 in 15 seconds if no response.`,
           variant: 'destructive',
         });
-        // Auto-reset after 30s
-        setTimeout(() => setCrashDetected(false), 30000);
+
+        let seconds = 15;
+        crashTimerRef.current = window.setInterval(() => {
+          seconds -= 1;
+          setCrashCountdown(seconds);
+          if (seconds <= 0) {
+            clearInterval(crashTimerRef.current!);
+            setCrashDetected(false);
+            setCrashCountdown(0);
+            alertSystem.speakAlert('Calling emergency services now.', true);
+            window.location.href = 'tel:112';
+          }
+        }, 1000);
       });
     } else {
       crashDetector.stop();
     }
-    return () => crashDetector.stop();
+    return () => {
+      crashDetector.stop();
+      if (crashTimerRef.current) clearInterval(crashTimerRef.current);
+    };
   }, [isMonitoring]);
 
   // Load preferences on mount
@@ -231,14 +256,20 @@ const Monitor = () => {
 
       <main className="app-main">
         {crashDetected && (
-          <div className="bg-destructive text-destructive-foreground rounded-lg p-4 flex items-center gap-3 animate-pulse">
-            <span className="text-2xl">🚨</span>
-            <div>
-              <p className="font-bold">Crash Detected!</p>
-              <p className="text-sm">Check for injuries. Call 112 if needed.</p>
-            </div>
-            <Button size="sm" variant="outline" className="ml-auto" onClick={() => window.location.href = 'tel:112'}>
-              Call 112
+          <div className="fixed inset-0 bg-destructive/95 z-50 flex flex-col items-center justify-center p-6 text-white">
+            <div className="text-6xl mb-4">🚨</div>
+            <h2 className="text-3xl font-bold mb-2">Crash Detected!</h2>
+            <p className="text-center text-lg mb-6 opacity-90">
+              Are you okay? Emergency services will be called automatically.
+            </p>
+            <div className="text-8xl font-bold mb-6 tabular-nums">{crashCountdown}</div>
+            <p className="text-sm opacity-75 mb-8">seconds until calling 112</p>
+            <Button
+              size="lg"
+              className="w-full max-w-xs bg-white text-destructive hover:bg-gray-100 font-bold text-lg h-16"
+              onClick={cancelCrashAlert}
+            >
+              ✅ I'm Okay — Cancel
             </Button>
           </div>
         )}
