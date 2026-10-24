@@ -19,6 +19,7 @@ import Install from "./pages/Install";
 import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
 import FamilyDashboard from "./pages/FamilyDashboard";
+import RiskAnalysis from "./pages/RiskAnalysis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/family-dashboard" element={<FamilyDashboard />} />
+                <Route path="/risk-analysis" element={<RiskAnalysis />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </MainLayout>

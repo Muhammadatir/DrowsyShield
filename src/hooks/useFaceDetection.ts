@@ -1,141 +1,186 @@
+/**
+ * useFaceDetection.ts
+ * React hook that orchestrates the full drowsiness detection pipeline:
+ *
+ *   Camera Frame
+ *       ↓
+ *   detectFace() — MediaPipe landmarks
+ *       ↓
+ *   extractFeatures() — EAR, MAR, head pose
+ *       ↓
+ *   updateBaseline() — personalized calibration
+ *       ↓
+ *   computeTemporalFeatures() — PERCLOS, blink patterns, yawn freq
+ *       ↓
+ *   computeAlertnessScore() — weighted risk score + EMA smoothing
+ *       ↓
+ *   Alert escalation (3 levels) with cooldowns and eye-closure timer
+ */
+
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  initializeFaceDetector,
-  detectFace,
-  calculateEyeClosureDuration,
-  checkForYawning,
-  checkBlinkFrequency,
-  type FaceDetectionResult,
-} from "@/utils/faceDetection";
+import { initializeFaceDetector, detectFace, type FaceDetectionResult } from "@/utils/faceDetection";
+import { computeAlertnessScore, resetDrowsinessEngine, type AlertnessResult } from "@/utils/drowsinessEngine";
+import { computeTemporalFeatures, type TemporalFrame } from "@/utils/temporalAnalysis";
+import { updateBaseline, resetBaseline } from "@/utils/adaptiveBaseline";
 import { alertSystem } from "@/utils/alertSystem";
-import { musicIntegration } from "@/utils/musicIntegration";
+import { loadPreferences } from "@/utils/localStorage";
+import { DETECTION_MODES } from "@/types/preferences";
 
 interface UseFaceDetectionProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   isActive: boolean;
   sensitivity: number;
   alertVolume: number;
+  detectionMode?: 'standard' | 'sensitive' | 'relaxed';
 }
+
+const LEVEL1_MESSAGES = [
+  "You may be getting tired. Please stay alert.",
+  "Early signs of fatigue detected. Stay focused.",
+];
+const LEVEL2_MESSAGES = [
+  "You appear drowsy. Please consider taking a break.",
+  "Drowsiness detected. Pull over if you feel unsafe.",
+];
+const LEVEL3_MESSAGES = [
+  "Critical drowsiness! Please stop the vehicle safely.",
+  "Severe drowsiness detected! Pull over immediately.",
+];
+
+// Cooldown between alerts per level (ms)
+const ALERT_COOLDOWNS = { 1: 10000, 2: 6000, 3: 4000 };
+
+// Minimum continuous eye closure before triggering alert (ms)
+const EYE_CLOSURE_ALERT_THRESHOLD_MS = 4000;
 
 export const useFaceDetection = ({
   videoRef,
   isActive,
   sensitivity,
   alertVolume,
+  detectionMode = 'standard',
 }: UseFaceDetectionProps) => {
-  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  // Resolve threshold multiplier from detection mode
+  const thresholdMultiplier = DETECTION_MODES.find(m => m.id === detectionMode)?.thresholdMultiplier ?? 1.0;
+  const [isModelLoaded, setIsModelLoaded]       = useState(false);
   const [detectionHistory, setDetectionHistory] = useState<FaceDetectionResult[]>([]);
   const [currentDetection, setCurrentDetection] = useState<FaceDetectionResult | null>(null);
-  const [drowsinessCount, setDrowsinessCount] = useState(0);
+  const [drowsinessCount, setDrowsinessCount]   = useState(0);
+  const [alertnessResult, setAlertnessResult]   = useState<AlertnessResult | null>(null);
+
   const detectionIntervalRef = useRef<number | null>(null);
-  const lastAlertTimeRef = useRef<number>(0);
-  const alertTimeoutRef = useRef<number | null>(null);
+  const lastAlertTimeRef     = useRef<Record<number, number>>({ 1: 0, 2: 0, 3: 0 });
+  const historyRef           = useRef<FaceDetectionResult[]>([]);
+  const temporalFramesRef    = useRef<TemporalFrame[]>([]);
+  const eyesClosedSinceRef   = useRef<number | null>(null);
 
-  // Initialize face detection model
   useEffect(() => {
-    const initModel = async () => {
-      const success = await initializeFaceDetector();
-      setIsModelLoaded(success);
-    };
-
-    initModel();
+    initializeFaceDetector().then(setIsModelLoaded);
   }, []);
 
-  // Run detection loop
   const runDetection = useCallback(async () => {
     if (!videoRef.current || !isActive || !isModelLoaded) return;
 
     const result = await detectFace(videoRef.current);
     setCurrentDetection(result);
 
-    setDetectionHistory((prev) => {
-      const updated = [...prev, result];
-      // Keep only last 100 detections
-      return updated.slice(-100);
-    });
+    // Keep rolling history (last 150 frames ≈ 45 seconds at 300ms interval)
+    historyRef.current = [...historyRef.current, result].slice(-150);
+    setDetectionHistory([...historyRef.current]);
 
-    // Check for drowsiness - eyes closed for 3 seconds
-    const eyeClosurePercentage = calculateEyeClosureDuration(
-      [...detectionHistory, result],
-      3000 // 3 seconds window
+    if (!result.faceDetected || !result.features) {
+      return;
+    }
+
+    const features = result.features;
+
+    // --- Adaptive baseline calibration ---
+    const baseline = updateBaseline(features);
+
+    // --- Temporal feature pipeline ---
+    temporalFramesRef.current = [
+      ...temporalFramesRef.current,
+      { timestamp: result.timestamp, features },
+    ].slice(-600);
+
+    const temporal = computeTemporalFeatures(temporalFramesRef.current);
+
+    // --- Compute alertness score ---
+    const alertness = computeAlertnessScore(
+      historyRef.current,
+      result.ear,
+      result.mar,
+      result.headPose,
+      temporal,
+      baseline,
+      thresholdMultiplier
     );
+    setAlertnessResult(alertness);
 
-    // Check for yawning
-    const isYawning = checkForYawning([...detectionHistory, result], 3000);
-    
-    // Check blink frequency
-    const abnormalBlinking = checkBlinkFrequency([...detectionHistory, result], 10000);
-
-    // Multi-factor detection for better accuracy
-    const EYE_CLOSURE_ALERT_THRESHOLD = 80; // 80% of frames in 3s = ~2.4s closed
-    
-    // More conservative alerting - require sustained drowsiness
-    const shouldAlert = (eyeClosurePercentage > EYE_CLOSURE_ALERT_THRESHOLD && result.faceDetected) || isYawning || abnormalBlinking;
-    const eyesCurrentlyOpen = result.faceDetected && !result.eyeState.bothEyesClosed;
-    
-    // Calculate alertness level for additional check
-    const currentAlertness = 100 - eyeClosurePercentage;
-    
-    // Cancel pending alert if eyes are open or alertness is recovering
-    if ((eyesCurrentlyOpen || currentAlertness > 85) && alertTimeoutRef.current) {
-      clearTimeout(alertTimeoutRef.current);
-      alertTimeoutRef.current = null;
-      console.log("✅ Alert cancelled - eyes open or alertness recovering", { alertness: currentAlertness.toFixed(1) });
+    // --- Eye closure duration tracking ---
+    const now = Date.now();
+    if (result.eyeState.bothEyesClosed) {
+      if (eyesClosedSinceRef.current === null) eyesClosedSinceRef.current = now;
+    } else {
+      eyesClosedSinceRef.current = null;
     }
+    const eyesClosedMs = eyesClosedSinceRef.current
+      ? now - eyesClosedSinceRef.current : 0;
 
-    // Only alert if face is detected, sustained drowsiness, and low alertness
-    if (shouldAlert && result.faceDetected && !eyesCurrentlyOpen && currentAlertness < 80) {
-      const now = Date.now();
-      // Only alert once every 3 seconds and if eyes are still closed
-      if (now - lastAlertTimeRef.current > 3000 && !alertTimeoutRef.current) {
-        // Delay alert by 1000ms to allow for eye opening and reduce false alarms
-        alertTimeoutRef.current = window.setTimeout(() => {
-          // Double-check eyes are still closed before alerting
-          if ((currentDetection?.eyeState.bothEyesClosed && currentDetection?.faceDetected) || isYawning || abnormalBlinking) {
-            const reason = isYawning ? "YAWNING" : abnormalBlinking ? "ABNORMAL BLINKING" : "EYES CLOSED";
-            console.log(`🚨 DROWSINESS ALERT: ${reason}! 🚨`);
-            if (!isYawning) {
-              console.log("Eye closure:", eyeClosurePercentage.toFixed(1) + "% over 3 seconds");
-            }
-            alertSystem.triggerFullAlert(alertVolume / 100, "high");
-            
-            // Play energizing music if enabled
-            musicIntegration.playEnergizingMusic();
-            
-            setDrowsinessCount((prev) => prev + 1);
-            lastAlertTimeRef.current = Date.now();
-          }
-          alertTimeoutRef.current = null;
-        }, 500);
-      }
+    // --- Alert gating ---
+    const level = alertness.alertLevel;
+    if (level === 0) return;
+
+    // Eye-based alerts require sustained closure; yawn/head alerts fire sooner
+    const eyeClosureTrigger  = eyesClosedMs >= EYE_CLOSURE_ALERT_THRESHOLD_MS;
+    const otherSignalTrigger = alertness.yawning
+      || alertness.signals.headPoseScore < 50
+      || temporal.perclos10s > 0.20;
+
+    if (!eyeClosureTrigger && !otherSignalTrigger) return;
+
+    // Sensitivity adjustment — higher sensitivity = shorter cooldowns
+    const sensitivityFactor = 1 - (sensitivity - 50) / 200; // 0.75–1.25
+    const cooldown = ALERT_COOLDOWNS[level as 1 | 2 | 3] * sensitivityFactor;
+    if (now - (lastAlertTimeRef.current[level] || 0) < cooldown) return;
+
+    lastAlertTimeRef.current[level] = now;
+
+    if (level === 1) {
+      alertSystem.playAlertSound(alertVolume / 100 * 0.4);
+      alertSystem.speakAlert(LEVEL1_MESSAGES[drowsinessCount % LEVEL1_MESSAGES.length]);
+    } else if (level === 2) {
+      alertSystem.vibrateDevice([300, 150, 300]);
+      alertSystem.playAlertSound(alertVolume / 100 * 0.7);
+      alertSystem.speakAlert(LEVEL2_MESSAGES[drowsinessCount % LEVEL2_MESSAGES.length]);
+    } else {
+      alertSystem.triggerFullAlert(alertVolume / 100, "high");
+      alertSystem.speakAlert(LEVEL3_MESSAGES[drowsinessCount % LEVEL3_MESSAGES.length], true);
     }
-  }, [videoRef, isActive, isModelLoaded, detectionHistory, sensitivity, alertVolume]);
+    setDrowsinessCount(p => p + 1);
+
+  }, [videoRef, isActive, isModelLoaded, alertVolume, sensitivity, drowsinessCount]);
 
   useEffect(() => {
     if (isActive && isModelLoaded) {
-      console.log("Starting face detection loop...");
-      // Run detection every 300ms for more responsive detection
       detectionIntervalRef.current = window.setInterval(runDetection, 300);
-    } else {
-      console.log("Face detection stopped");
     }
-
     return () => {
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
+      if (detectionIntervalRef.current) clearInterval(detectionIntervalRef.current);
     };
   }, [isActive, isModelLoaded, runDetection]);
 
   const resetDetection = useCallback(() => {
     setDetectionHistory([]);
+    historyRef.current = [];
+    temporalFramesRef.current = [];
     setCurrentDetection(null);
     setDrowsinessCount(0);
-    lastAlertTimeRef.current = 0;
-    if (alertTimeoutRef.current) {
-      clearTimeout(alertTimeoutRef.current);
-      alertTimeoutRef.current = null;
-    }
+    setAlertnessResult(null);
+    lastAlertTimeRef.current = { 1: 0, 2: 0, 3: 0 };
+    eyesClosedSinceRef.current = null;
+    resetDrowsinessEngine();
+    resetBaseline();
   }, []);
 
   return {
@@ -143,6 +188,7 @@ export const useFaceDetection = ({
     currentDetection,
     detectionHistory,
     drowsinessCount,
+    alertnessResult,
     resetDetection,
   };
 };

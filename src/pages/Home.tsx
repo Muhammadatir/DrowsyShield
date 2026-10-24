@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Eye, Shield, Zap, BarChart3, Smartphone } from "lucide-react";
+import { Settings, Eye, Shield, Zap, BarChart3, Smartphone, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusIndicator } from "@/components/home/StatusIndicator";
@@ -129,11 +129,19 @@ const Home = () => {
             </CardContent>
           </Card>
           
-          <Card className="bg-white/10 backdrop-blur-lg border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105">
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer" onClick={() => navigate('/risk-analysis')}>
+            <CardContent className="p-4 text-center">
+              <Brain className="w-8 h-8 text-orange-400 mx-auto mb-2" />
+              <h3 className="font-semibold text-white">Risk Score</h3>
+              <p className="text-xs text-blue-200">AI analysis</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer" onClick={() => navigate('/family-dashboard')}>
             <CardContent className="p-4 text-center">
               <Shield className="w-8 h-8 text-green-400 mx-auto mb-2" />
-              <h3 className="font-semibold text-white">Safety Score</h3>
-              <p className="text-xs text-blue-200">Gamified reports</p>
+              <h3 className="font-semibold text-white">Family</h3>
+              <p className="text-xs text-blue-200">Safety dashboard</p>
             </CardContent>
           </Card>
         </div>
